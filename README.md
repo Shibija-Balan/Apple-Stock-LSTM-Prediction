@@ -37,5 +37,9 @@ Python, TensorFlow/Keras, Pandas, NumPy, Matplotlib, scikit-learn
 ### Training Loss
 ![Training Loss](images/training_loss.png)
 
+## Model Rationale and Insights
+
+I selected an LSTM network instead of linear regression or ARIMA because financial time series often display non-linear dynamics and long-term temporal dependencies that traditional models cannot capture. The model was trained on 60-day rolling windows to predict the next day’s price, with the dataset split chronologically to avoid data leakage from future data. The loss curve showed smooth exponential convergence, indicating strong learning stability. The LSTM effectively tracked underlying market trends and directionality, though it displayed minor lag during volatile periods—highlighting both its strength in pattern recognition and the inherent challenges of forecasting high-variance financial data.
+
 
 
