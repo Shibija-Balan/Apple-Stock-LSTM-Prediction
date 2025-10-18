@@ -23,7 +23,7 @@ This project predicts Apple stock mid-prices from 2020 to 2025 using a stacked L
 Python, TensorFlow/Keras, Pandas, NumPy, Matplotlib, scikit-learn
 
 ## Repository
-- Jupyter Notebook: `AppleStockLSTM.ipynb`
+- Jupyter Notebook: `Apple_Stock_LSTM.ipynb`
 - Requirements: `requirements.txt`
 
 ## Visualizations
