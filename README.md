@@ -31,9 +31,11 @@ Python, TensorFlow/Keras, Pandas, NumPy, Matplotlib, scikit-learn
 ### Mid-stock Prices
 ![Mid-stock Prices](images/mid_stock_prices.png)
 
+### Predicted vs Actual Prices
+![Predicted vs Actual](images/predicted_vs_actual.png)
+
 ### Training Loss
 ![Training Loss](images/training_loss.png)
 
-### Predicted vs Actual Prices
-![Predicted vs Actual](images/predicted_vs_actual.png)
+
 
