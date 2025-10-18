@@ -26,3 +26,14 @@ Python, TensorFlow/Keras, Pandas, NumPy, Matplotlib, scikit-learn
 - Jupyter Notebook: `AppleStockLSTM.ipynb`
 - Requirements: `requirements.txt`
 
+## Visualizations
+
+### Mid-stock Prices
+![Mid-stock Prices](images/mid_stock_prices.png)
+
+### Training Loss
+![Training Loss](images/training_loss.png)
+
+### Predicted vs Actual Prices
+![Predicted vs Actual](images/predicted_vs_actual.png)
+
