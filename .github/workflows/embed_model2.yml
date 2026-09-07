@@ -1,0 +1,36 @@
+name: Embed Model 2 in notebook
+
+on:
+  push:
+    paths:
+      - 'embed_model2_notebook.py'
+
+permissions:
+  contents: write
+
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Embed evaluation and Model 2 into notebook
+        run: python embed_model2_notebook.py
+
+      - name: Commit updated notebook
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Apple_Stock_LSTM.ipynb
+          if git diff --cached --quiet; then
+            echo "Notebook already up to date"
+          else
+            git commit -m "Embed improved return-based LSTM in notebook"
+            git push
+          fi
