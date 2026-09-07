@@ -4,22 +4,57 @@ A time-series forecasting project using stacked Long Short-Term Memory (LSTM) ne
 
 ## Project overview
 
-The notebook preprocesses historical OHLC data, calculates a mid-price from daily high and low values, constructs 60-day rolling sequences and trains a stacked LSTM network to predict the next value in the series.
+The project calculates daily Apple mid-prices from historical high and low prices, constructs 60-day rolling sequences and trains a stacked LSTM network to predict the next trading day's mid-price.
 
-## Methods
-
-- Chronological filtering and preprocessing of historical Apple stock data
-- Mid-price calculation from high and low prices
-- Min-max normalisation
-- 60-day rolling input sequences
-- Stacked LSTM architecture with dropout regularisation
-- Time-ordered train/test handling to avoid future-data leakage
-- Visual comparison of predicted and observed prices
-- Training-loss monitoring
+The repository now includes a separate leakage-free evaluation pipeline that downloads AAPL data programmatically, preserves chronological ordering and benchmarks the LSTM against a naive persistence forecast.
 
 ## Model
 
-The project uses TensorFlow/Keras with stacked LSTM layers, dropout and the Adam optimiser. LSTMs were chosen as an experiment in sequence modelling because they can represent non-linear temporal dependencies across rolling windows.
+- 60-day rolling input window
+- Two stacked LSTM layers with 70 units each
+- 20% dropout after each LSTM layer
+- Dense one-unit output layer
+- Adam optimiser
+- Mean-squared-error training loss
+- 25 epochs and batch size of 32
+
+## Evaluation methodology
+
+`evaluate_model.py` provides a more rigorous out-of-sample evaluation than the original exploratory notebook:
+
+1. Downloads AAPL OHLC data from 1 January 2020 to 17 January 2025 using `yfinance`
+2. Calculates daily mid-price as `(High + Low) / 2`
+3. Uses a chronological 80/20 train-test split rather than random sampling
+4. Fits the MinMax scaler **only on the training period**, preventing test-period information from leaking into preprocessing
+5. Trains the same two-layer LSTM architecture used in the notebook
+6. Evaluates predictions in original US-dollar price units
+7. Reports out-of-sample RMSE, MAE and directional accuracy
+8. Compares the model against a naive persistence benchmark where the next day's predicted mid-price equals the previous day's observed mid-price
+9. Reports RMSE and MAE skill relative to that benchmark
+
+This benchmark matters because stock-price levels are highly persistent. A prediction line can visually track observed prices while still failing to outperform the simple assumption that tomorrow's price will equal today's price.
+
+## Performance outputs
+
+Running:
+
+```bash
+python evaluate_model.py
+```
+
+produces `metrics.json` containing:
+
+- LSTM RMSE (USD)
+- LSTM MAE (USD)
+- Naive persistence RMSE (USD)
+- Naive persistence MAE (USD)
+- RMSE skill versus persistence
+- MAE skill versus persistence
+- Directional accuracy
+- Final training loss
+- Train/test observation counts and modelling parameters
+
+The GitHub Actions workflow `.github/workflows/evaluate.yml` also runs this evaluation automatically and uploads `metrics.json` as a workflow artifact.
 
 ## Visualisations
 
@@ -34,28 +69,25 @@ The project uses TensorFlow/Keras with stacked LSTM layers, dropout and the Adam
 
 ## Repository structure
 
-- `Apple_Stock_LSTM.ipynb` — full analysis and model notebook
+- `Apple_Stock_LSTM.ipynb` — original exploratory model notebook
+- `evaluate_model.py` — reproducible leakage-free out-of-sample evaluation
+- `.github/workflows/evaluate.yml` — automated model evaluation
 - `images/` — generated plots
 - `requirements.txt` — Python dependencies
 
-## Reproducibility note
-
-The notebook currently expects a local file named `aapl_us_2025.csv`. That source file is not committed to this repository, so the analysis is not yet fully reproducible from a fresh clone. A future revision should either download the price data programmatically from a documented public source or provide explicit instructions for obtaining the same dataset.
-
-## Evaluation limitation
-
-A visually close predicted-price line is not sufficient evidence that a financial forecasting model is useful. Stock-price levels are strongly persistent, meaning a simple baseline such as "tomorrow's price equals today's price" can already look convincing on a chart.
-
-A stronger evaluation should compare the LSTM against naive persistence and simpler statistical or regression baselines using out-of-sample metrics such as MAE and RMSE. Until that comparison is added, this project should be interpreted as a sequence-modelling exercise rather than evidence of profitable market prediction.
-
 ## Tools
 
-Python, TensorFlow/Keras, pandas, NumPy, matplotlib, scikit-learn
+Python, TensorFlow/Keras, pandas, NumPy, matplotlib, scikit-learn, yfinance
 
 ## Key learning
 
 - Preparing time-series data for supervised sequence models
 - Building and training stacked LSTM networks
-- Applying normalisation and rolling windows
-- Avoiding obvious future-data leakage through chronological splitting
-- Recognising the importance of baseline models and rigorous out-of-sample evaluation in financial machine learning
+- Preventing preprocessing leakage in chronological forecasting problems
+- Evaluating predictions in economically interpretable price units
+- Benchmarking complex models against simple persistence forecasts
+- Distinguishing visually plausible predictions from genuine out-of-sample forecasting improvement
+
+## CV-ready project description
+
+Built a two-layer LSTM model for Apple mid-price forecasting using 60-day rolling sequences and chronological train-test splitting; developed a leakage-free out-of-sample evaluation pipeline reporting RMSE, MAE and directional accuracy against a naive persistence benchmark
