@@ -6,7 +6,7 @@ A time-series forecasting project using stacked Long Short-Term Memory (LSTM) ne
 
 The project calculates daily Apple mid-prices from historical high and low prices, constructs 60-day rolling sequences and trains a stacked LSTM network to predict the next trading day's mid-price.
 
-The repository now includes a separate leakage-free evaluation pipeline that downloads AAPL data programmatically, preserves chronological ordering and benchmarks the LSTM against a naive persistence forecast.
+The repository includes a separate leakage-free evaluation pipeline using a pinned public AAPL OHLC dataset, chronological validation and comparison against a naive persistence forecast.
 
 ## Model
 
@@ -22,7 +22,7 @@ The repository now includes a separate leakage-free evaluation pipeline that dow
 
 `evaluate_model.py` provides a more rigorous out-of-sample evaluation than the original exploratory notebook:
 
-1. Downloads AAPL OHLC data from 1 January 2020 to 17 January 2025 using `yfinance`
+1. Loads a pinned public AAPL OHLC dataset covering 1 January 2020 to 17 January 2025
 2. Calculates daily mid-price as `(High + Low) / 2`
 3. Uses a chronological 80/20 train-test split rather than random sampling
 4. Fits the MinMax scaler **only on the training period**, preventing test-period information from leaking into preprocessing
@@ -34,6 +34,31 @@ The repository now includes a separate leakage-free evaluation pipeline that dow
 
 This benchmark matters because stock-price levels are highly persistent. A prediction line can visually track observed prices while still failing to outperform the simple assumption that tomorrow's price will equal today's price.
 
+## Out-of-sample performance
+
+Evaluation window: chronological 80/20 holdout across 1,264 daily observations, with 1,011 training observations and 253 test observations.
+
+| Metric | LSTM | Naive persistence |
+|---|---:|---:|
+| RMSE | **$6.23** | **$2.80** |
+| MAE | **$5.17** | **$2.00** |
+| Directional accuracy | **49.8%** | n/a |
+
+Additional results:
+
+- Mean test-period mid-price: **$208.16**
+- Normalised LSTM RMSE: **3.0%** of the mean test-period mid-price
+- LSTM RMSE skill vs persistence: **-122.9%**
+- LSTM MAE skill vs persistence: **-158.6%**
+
+### Interpretation
+
+The LSTM produces predictions that are relatively close to the observed price level in absolute terms: an RMSE of $6.23 corresponds to roughly 3.0% of the mean test-period mid-price. However, it does **not** outperform the naive persistence benchmark. The persistence forecast achieves a materially lower RMSE of $2.80 and MAE of $2.00.
+
+The model's 49.8% directional accuracy is also approximately chance-level, indicating that the LSTM does not demonstrate useful next-day directional forecasting ability in this specification.
+
+The main conclusion is therefore not that the LSTM is a profitable forecasting model. Instead, the project demonstrates why visually close stock-price predictions are insufficient evidence of predictive value and why complex financial machine-learning models must be evaluated against simple baselines using leakage-free out-of-sample testing.
+
 ## Performance outputs
 
 Running:
@@ -44,17 +69,15 @@ python evaluate_model.py
 
 produces `metrics.json` containing:
 
-- LSTM RMSE (USD)
-- LSTM MAE (USD)
-- Naive persistence RMSE (USD)
-- Naive persistence MAE (USD)
-- RMSE skill versus persistence
-- MAE skill versus persistence
+- LSTM RMSE and MAE in USD
+- Naive persistence RMSE and MAE in USD
+- RMSE and MAE skill versus persistence
 - Directional accuracy
+- Normalised RMSE
 - Final training loss
 - Train/test observation counts and modelling parameters
 
-The GitHub Actions workflow `.github/workflows/evaluate.yml` also runs this evaluation automatically and uploads `metrics.json` as a workflow artifact.
+The GitHub Actions workflow `.github/workflows/evaluate.yml` runs this evaluation automatically and uploads `metrics.json` as a workflow artifact.
 
 ## Visualisations
 
@@ -77,7 +100,7 @@ The GitHub Actions workflow `.github/workflows/evaluate.yml` also runs this eval
 
 ## Tools
 
-Python, TensorFlow/Keras, pandas, NumPy, matplotlib, scikit-learn, yfinance
+Python, TensorFlow/Keras, pandas, NumPy, matplotlib, scikit-learn
 
 ## Key learning
 
@@ -90,4 +113,4 @@ Python, TensorFlow/Keras, pandas, NumPy, matplotlib, scikit-learn, yfinance
 
 ## CV-ready project description
 
-Built a two-layer LSTM model for Apple mid-price forecasting using 60-day rolling sequences and chronological train-test splitting; developed a leakage-free out-of-sample evaluation pipeline reporting RMSE, MAE and directional accuracy against a naive persistence benchmark
+Built and evaluated a two-layer LSTM for Apple mid-price forecasting using 60-day sequences and leakage-free chronological validation; achieved $6.23 out-of-sample RMSE and 49.8% directional accuracy, with benchmark testing showing the model underperformed a $2.80-RMSE persistence forecast
