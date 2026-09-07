@@ -1,10 +1,10 @@
 """Leakage-free evaluation for the Apple mid-price LSTM project.
 
-Downloads AAPL daily OHLC data from Stooq, builds the same 60-day/two-layer
-LSTM used in Apple_Stock_LSTM.ipynb, and evaluates it on a chronological
-holdout period. The scaler is fitted only on the training period.
-Performance is compared against a naive persistence baseline:
-tomorrow's mid-price = today's mid-price.
+Loads a pinned public AAPL OHLC dataset, builds the same 60-day/two-layer LSTM
+used in Apple_Stock_LSTM.ipynb, and evaluates it on a chronological holdout
+period. The scaler is fitted only on the training period. Performance is
+compared against a naive persistence baseline: tomorrow's mid-price = today's
+mid-price.
 """
 
 import json
@@ -23,7 +23,10 @@ from tensorflow.keras.models import Sequential
 SEED = 42
 START_DATE = "2020-01-01"
 END_DATE = "2025-01-17"
-DATA_URL = "https://stooq.com/q/d/l/?s=aapl.us&d1=20200101&d2=20250117&i=d"
+DATA_URL = (
+    "https://raw.githubusercontent.com/Buicongbang04/Stock-Prediction/"
+    "c6a7f945640aff9c80db10b8419888e72f1f5cc8/data/AAPL.csv"
+)
 WINDOW_SIZE = 60
 TRAIN_FRACTION = 0.80
 EPOCHS = 25
@@ -44,15 +47,17 @@ def load_data() -> pd.DataFrame:
     if missing:
         raise RuntimeError(f"Missing expected columns: {missing}")
 
+    start = pd.Timestamp(START_DATE)
+    end = pd.Timestamp(END_DATE)
     df = (
         df[required]
         .dropna()
-        .query("Date >= @START_DATE and Date <= @END_DATE")
+        .loc[lambda x: (x["Date"] >= start) & (x["Date"] <= end)]
         .sort_values("Date")
         .reset_index(drop=True)
     )
     if df.empty:
-        raise RuntimeError("No AAPL observations returned from Stooq")
+        raise RuntimeError("No AAPL observations found in the requested period")
 
     df["MidPrice"] = (df["High"] + df["Low"]) / 2.0
     return df
@@ -139,7 +144,7 @@ def main() -> None:
 
     metrics = {
         "ticker": "AAPL",
-        "data_source": "Stooq daily OHLC",
+        "data_source": "Pinned public GitHub AAPL daily OHLC dataset",
         "start_date": START_DATE,
         "end_date_inclusive": END_DATE,
         "observations": int(len(prices)),
