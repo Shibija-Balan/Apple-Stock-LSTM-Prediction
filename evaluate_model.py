@@ -1,9 +1,10 @@
 """Leakage-free evaluation for the Apple mid-price LSTM project.
 
-Downloads AAPL daily OHLC data, builds the same 60-day/two-layer LSTM used in
-Apple_Stock_LSTM.ipynb, and evaluates it on a chronological holdout period.
-The scaler is fitted only on the training period. Performance is compared
-against a naive persistence baseline: tomorrow's mid-price = today's mid-price.
+Downloads AAPL daily OHLC data from Stooq, builds the same 60-day/two-layer
+LSTM used in Apple_Stock_LSTM.ipynb, and evaluates it on a chronological
+holdout period. The scaler is fitted only on the training period.
+Performance is compared against a naive persistence baseline:
+tomorrow's mid-price = today's mid-price.
 """
 
 import json
@@ -14,7 +15,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import yfinance as yf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
@@ -22,7 +22,8 @@ from tensorflow.keras.models import Sequential
 
 SEED = 42
 START_DATE = "2020-01-01"
-END_DATE = "2025-01-18"  # yfinance end date is exclusive; includes 17 Jan 2025
+END_DATE = "2025-01-17"
+DATA_URL = "https://stooq.com/q/d/l/?s=aapl.us&d1=20200101&d2=20250117&i=d"
 WINDOW_SIZE = 60
 TRAIN_FRACTION = 0.80
 EPOCHS = 25
@@ -37,26 +38,22 @@ def set_seeds(seed: int = SEED) -> None:
 
 
 def load_data() -> pd.DataFrame:
-    df = yf.download(
-        "AAPL",
-        start=START_DATE,
-        end=END_DATE,
-        auto_adjust=False,
-        progress=False,
-    )
-    if df.empty:
-        raise RuntimeError("No AAPL data returned by yfinance")
-
-    # Recent yfinance versions may return a MultiIndex for a single ticker.
-    if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
-
-    required = ["Open", "High", "Low", "Close"]
+    df = pd.read_csv(DATA_URL, parse_dates=["Date"])
+    required = ["Date", "Open", "High", "Low", "Close"]
     missing = [col for col in required if col not in df.columns]
     if missing:
         raise RuntimeError(f"Missing expected columns: {missing}")
 
-    df = df[required].dropna().copy()
+    df = (
+        df[required]
+        .dropna()
+        .query("Date >= @START_DATE and Date <= @END_DATE")
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
+    if df.empty:
+        raise RuntimeError("No AAPL observations returned from Stooq")
+
     df["MidPrice"] = (df["High"] + df["Low"]) / 2.0
     return df
 
@@ -101,7 +98,7 @@ def main() -> None:
     if split_idx <= WINDOW_SIZE:
         raise RuntimeError("Training set is too short for the selected window")
 
-    # Critical leakage fix: learn scaling parameters ONLY from the training period.
+    # Leakage prevention: estimate scaling parameters on training data only.
     scaler = MinMaxScaler(feature_range=(0, 1))
     scaler.fit(prices[:split_idx].reshape(-1, 1))
     scaled = scaler.transform(prices.reshape(-1, 1))
@@ -126,7 +123,7 @@ def main() -> None:
     actual = scaler.inverse_transform(y_test.reshape(-1, 1)).ravel()
     previous = prices[test_targets - 1]
 
-    # Persistence benchmark: use the previous trading day's actual mid-price.
+    # Persistence benchmark: next day's mid-price equals previous day's actual mid-price.
     naive = previous.copy()
 
     lstm_rmse = float(np.sqrt(mean_squared_error(actual, predicted)))
@@ -137,10 +134,14 @@ def main() -> None:
     rmse_skill = float(1 - lstm_rmse / naive_rmse)
     mae_skill = float(1 - lstm_mae / naive_mae)
 
+    test_mean_price = float(np.mean(actual))
+    normalized_rmse = float(lstm_rmse / test_mean_price)
+
     metrics = {
         "ticker": "AAPL",
+        "data_source": "Stooq daily OHLC",
         "start_date": START_DATE,
-        "end_date_inclusive": "2025-01-17",
+        "end_date_inclusive": END_DATE,
         "observations": int(len(prices)),
         "train_observations": int(split_idx),
         "test_observations": int(len(test_targets)),
@@ -154,8 +155,10 @@ def main() -> None:
         "rmse_skill_vs_naive": rmse_skill,
         "mae_skill_vs_naive": mae_skill,
         "directional_accuracy": direction_acc,
+        "test_mean_mid_price_usd": test_mean_price,
+        "normalized_rmse": normalized_rmse,
         "final_training_loss": float(history.history["loss"][-1]),
-        "methodology": "chronological 80/20 holdout; scaler fit on training period only",
+        "methodology": "chronological 80/20 holdout; scaler fit on training period only; no shuffle",
     }
 
     Path("metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
@@ -172,6 +175,7 @@ def main() -> None:
     else:
         print(f"LSTM underperforms naive persistence on MAE by {-mae_skill:.1%}.")
     print(f"Directional accuracy: {direction_acc:.1%}")
+    print(f"Normalized RMSE: {normalized_rmse:.1%} of mean test-period mid-price")
 
 
 if __name__ == "__main__":
